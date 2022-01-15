@@ -1,17 +1,16 @@
 from lndgrpc import LNDClient
 import lndgrpc.rpc_pb2 as ln
 import configparser
-from time import sleep
 import json
+import time
+
 
 def is_shared(string):
-  try:
-    json_obj = json.loads(string)
-    return json_obj.get("share",False)
-  except:
-    return False
-  return True
-
+    try:
+        json_obj = json.loads(string)
+        return json_obj.get("share", False)
+    except:
+        return False
 
 
 def create_node_obj(config, name):
@@ -27,67 +26,76 @@ def create_node_obj(config, name):
     return node_obj
 
 
-
-def check_invoice_paid():
-    pass
-
-
 def main():
     config = configparser.ConfigParser()
     config.read("project.config")
 
     alice = create_node_obj(config, "alice")
     bob = create_node_obj(config, "bob")
-    # carol_pub = "02aa93525d98c65c1b1bbe6486fc3b5918657ba8664065906c356c14288da78621"
-    # dave_pub = "0283b2f17ef004426f545a9b84c86e7edca548ef5029218fdce9b8bd2979aea83b"
-    # erin_pub = "0227f7850fcd6d33b8dbe589232619e6b17fc8b22cbcf9a136bf17f93c0bbd3c24"
+    carol_pub = "02aa93525d98c65c1b1bbe6486fc3b5918657ba8664065906c356c14288da78621"
+    dave_pub = "0283b2f17ef004426f545a9b84c86e7edca548ef5029218fdce9b8bd2979aea83b"
+    erin_pub = "0227f7850fcd6d33b8dbe589232619e6b17fc8b22cbcf9a136bf17f93c0bbd3c24"
 
     # # alice create invoice
-    # memo = json.dumps({
-    #     "share":True,
-    #     "destinations": [
-    #         carol_pub,
-    #         dave_pub,
-    #         erin_pub
-    #     ]
-    # })
+    memo = json.dumps({
+        "share": True,
+        "shares": {
+            carol_pub: 0.33,
+            dave_pub: 0.33,
+            erin_pub: 0.34
+        }
+    })
 
     # # bob creates an invoice (request for payment)
     # invoice = bob.add_invoice(11, memo)
     # r_hash = invoice.r_hash
     # add_index = invoice.add_index
     # payment_request = invoice.payment_request
-    # # print(payment_request)
-
 
     # # alice sends payment to bob using payment request
     # alice.send_payment(payment_request)
+
+    # just code to populate Bob's payments list
     # invoice = alice.add_invoice(10000,"test")
     # bob.send_payment(invoice.payment_request)
 
     # wait a few seconds
-    # sleep(10)
+    # sleep(2)
 
-    # filter for received payments (invoices) that should be shared
+    # filter Bobs received payments (invoices) for those that should be shared
     # this should be an event driven process, possibly with a database
     b_invoices = bob.list_invoices().invoices
     b_payments = bob.list_payments().payments
-    sharing_invoices = list(filter(lambda invoice: is_shared(invoice.memo),b_invoices))
+    sharing_invoices = list(filter(lambda inv: is_shared(inv.memo), b_invoices))
 
-    # filter out invoices that have already been shared 
-    # this is done by checking payments made to each destination 
-    # shared payments contain in the memo the hash of original invoice being shared
-    unshared_invoices = []
-    for invoice in sharing_invoices: 
-      memo = invoice.memo
-      memo_json = json.loads(memo)
-      destinations = memo["destinations"]
-      r_hash = invoice.r_has.decode('utf-8')
-    
+    for invoice in sharing_invoices:
+        if not invoice_has_been_shared(invoice, b_payments):
+            # payments were not found, so share the invoice
+            share_invoice(bob, invoice)
 
-def find_payment(hash,payments):
-  for payment in payments:
-    pass
+
+def share_invoice(node, invoice):
+    memo = invoice.memo
+    amt_paid = invoice.amt_paid_sat
+    memo_json = json.loads(memo)
+    shares = memo_json["shares"]  # TODO: add an assertion to make sure the shares add up to 1.0
+
+    # create the payment request on the destinations behalf
+    for pub_key, share in shares.items():
+        sat_share = int(amt_paid * share)  # may lose one sat
+        temp_invoice = ln.Invoice(memo="", value=sat_share, expiry=3600, creation_data=int(time.time()))
+        payment_request = temp_invoice.payment_request
+        node.send_payment(payment_request)
+
+
+# filter out invoices that have already been shared
+# this is done by checking payments made to each destination
+# shared payments contain in the memo the hash of original invoice being shared
+def invoice_has_been_shared(invoice, payments):
+    r_hash = invoice.r_has.decode('utf-8')
+    for payment in payments:
+        pass
+    return False
 
 
 if __name__ == '__main__':
