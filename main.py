@@ -3,16 +3,7 @@ import lndgrpc.rpc_pb2 as ln
 import configparser
 from time import sleep
 import json
-
-def is_shared(string):
-  try:
-    json_obj = json.loads(string)
-    return json_obj.get("share",False)
-  except:
-    return False
-  return True
-
-
+import yaml
 
 def create_node_obj(config, name):
     invoice_mac_loc = config[name]["admin_mac_loc"]
@@ -26,6 +17,13 @@ def create_node_obj(config, name):
 
     return node_obj
 
+def get_share_policy(memo):
+    with open('shares.config') as f:
+        conf = yaml.safe_load(f)
+        for key in conf.keys():
+            if key in memo:
+                return conf[key]
+        return False
 
 
 def check_invoice_paid():
@@ -53,7 +51,7 @@ def main():
     # })
 
     # # bob creates an invoice (request for payment)
-    # invoice = bob.add_invoice(11, memo)
+    # invoice = bob.add_invoice(11, 'nicehash')
     # r_hash = invoice.r_hash
     # add_index = invoice.add_index
     # payment_request = invoice.payment_request
@@ -72,17 +70,17 @@ def main():
     # this should be an event driven process, possibly with a database
     b_invoices = bob.list_invoices().invoices
     b_payments = bob.list_payments().payments
-    sharing_invoices = list(filter(lambda invoice: is_shared(invoice.memo),b_invoices))
 
     # filter out invoices that have already been shared 
     # this is done by checking payments made to each destination 
     # shared payments contain in the memo the hash of original invoice being shared
     unshared_invoices = []
-    for invoice in sharing_invoices: 
+    for invoice in b_invoices: 
       memo = invoice.memo
-      memo_json = json.loads(memo)
-      destinations = memo["destinations"]
-      r_hash = invoice.r_has.decode('utf-8')
+      policy = get_share_policy(memo)
+      if policy:
+        print(policy)
+        r_hash = invoice.r_has.decode('utf-8')
     
 
 def find_payment(hash,payments):
