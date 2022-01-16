@@ -1,9 +1,17 @@
 from lndgrpc import LNDClient
 import lndgrpc.rpc_pb2 as ln
 import configparser
-from time import sleep
 import json
+import time
 import yaml
+
+
+def is_shared(string):
+    try:
+        json_obj = json.loads(string)
+        return json_obj.get("share", False)
+    except:
+        return False
 
 
 def create_node_obj(config, name):
@@ -59,14 +67,17 @@ def main():
 
     # make_fake_data(alice, bob)
 
-    # filter for received payments (invoices) that should be shared
+    # filter Bobs received payments (invoices) for those that should be shared
     # this should be an event driven process, possibly with a database
     b_invoices = bob.list_invoices().invoices
     b_payments = bob.list_payments().payments
+    sharing_invoices = list(filter(lambda inv: is_shared(inv.memo), b_invoices))
 
-    # filter out invoices that have already been shared 
-    # this is done by checking payments made to each destination 
-    # shared payments contain in the memo the hash of original invoice being shared
+    for invoice in sharing_invoices:
+        if not invoice_has_been_shared(invoice, b_payments):
+            # payments were not found, so share the invoice
+            share_invoice(bob, invoice)
+
     unshared_invoices = []
     for invoice in b_invoices:
         memo = invoice.memo
@@ -74,10 +85,35 @@ def main():
         if policy:
             print(policy)
 
-
 def find_payment(hash, payments):
     for payment in payments:
         pass
+
+
+def share_invoice(node, invoice):
+    memo = invoice.memo
+    amt_paid = invoice.amt_paid_sat
+    memo_json = json.loads(memo)
+    shares = memo_json["shares"]  # TODO: add an assertion to make sure the shares add up to 1.0
+
+    # create the payment request on the destinations behalf
+    for pub_key, share in shares.items():
+        sat_share = int(amt_paid * share)  # may lose one sat
+        temp_invoice = ln.Invoice(memo="", value=sat_share, expiry=3600, creation_data=int(time.time()))
+        payment_request = temp_invoice.payment_request
+        node.send_payment(payment_request)
+
+
+# filter out invoices that have already been shared
+# this is done by checking payments made to each destination
+# shared payments contain in the memo the hash of original invoice being shared
+def invoice_has_been_shared(invoice, payments):
+    r_hash = invoice.r_has.decode('utf-8')
+    for payment in payments:
+        pass
+    return False
+
+
 
 
 if __name__ == '__main__':
