@@ -5,6 +5,7 @@ from time import sleep
 import json
 import yaml
 
+
 def create_node_obj(config, name):
     invoice_mac_loc = config[name]["admin_mac_loc"]
     tls_cert_loc = config[name]["tls_cert_loc"]
@@ -16,6 +17,7 @@ def create_node_obj(config, name):
                          ip_address=ip_address)
 
     return node_obj
+
 
 def get_share_policy(memo):
     with open('shares.yaml') as f:
@@ -30,6 +32,21 @@ def check_invoice_paid():
     pass
 
 
+def make_fake_data(alice, bob):
+    # bob creates an invoice (request for payment)
+    invoice = bob.add_invoice(11, 'nicehash')
+    r_hash = invoice.r_hash
+    add_index = invoice.add_index
+    payment_request = invoice.payment_request
+    # print(payment_request)
+
+    # alice sends payment to bob using payment request
+    alice.send_payment(payment_request)
+
+    invoice = alice.add_invoice(10000, "test")
+    bob.send_payment(invoice.payment_request)
+
+
 def main():
     config = configparser.ConfigParser()
     config.read("project.config")
@@ -40,31 +57,7 @@ def main():
     # dave_pub = "0283b2f17ef004426f545a9b84c86e7edca548ef5029218fdce9b8bd2979aea83b"
     # erin_pub = "0227f7850fcd6d33b8dbe589232619e6b17fc8b22cbcf9a136bf17f93c0bbd3c24"
 
-    # # alice create invoice
-    # memo = json.dumps({
-    #     "share":True,
-    #     "destinations": [
-    #         carol_pub,
-    #         dave_pub,
-    #         erin_pub
-    #     ]
-    # })
-
-    # # bob creates an invoice (request for payment)
-    # invoice = bob.add_invoice(11, 'nicehash')
-    # r_hash = invoice.r_hash
-    # add_index = invoice.add_index
-    # payment_request = invoice.payment_request
-    # # print(payment_request)
-
-
-    # # alice sends payment to bob using payment request
-    # alice.send_payment(payment_request)
-    # invoice = alice.add_invoice(10000,"test")
-    # bob.send_payment(invoice.payment_request)
-
-    # wait a few seconds
-    # sleep(10)
+    # make_fake_data(alice, bob)
 
     # filter for received payments (invoices) that should be shared
     # this should be an event driven process, possibly with a database
@@ -75,17 +68,16 @@ def main():
     # this is done by checking payments made to each destination 
     # shared payments contain in the memo the hash of original invoice being shared
     unshared_invoices = []
-    for invoice in b_invoices: 
-      memo = invoice.memo
-      policy = get_share_policy(memo)
-      if policy:
-        print(policy)
-        r_hash = invoice.r_has.decode('utf-8')
-    
+    for invoice in b_invoices:
+        memo = invoice.memo
+        policy = get_share_policy(memo)
+        if policy:
+            print(policy)
 
-def find_payment(hash,payments):
-  for payment in payments:
-    pass
+
+def find_payment(hash, payments):
+    for payment in payments:
+        pass
 
 
 if __name__ == '__main__':
