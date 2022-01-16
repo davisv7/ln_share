@@ -6,14 +6,6 @@ import time
 import yaml
 
 
-def is_shared(string):
-    try:
-        json_obj = json.loads(string)
-        return json_obj.get("share", False)
-    except:
-        return False
-
-
 def create_node_obj(config, name):
     invoice_mac_loc = config[name]["admin_mac_loc"]
     tls_cert_loc = config[name]["tls_cert_loc"]
@@ -71,12 +63,6 @@ def main():
     # this should be an event driven process, possibly with a database
     b_invoices = bob.list_invoices().invoices
     b_payments = bob.list_payments().payments
-    sharing_invoices = list(filter(lambda inv: is_shared(inv.memo), b_invoices))
-
-    for invoice in sharing_invoices:
-        if not invoice_has_been_shared(invoice, b_payments):
-            # payments were not found, so share the invoice
-            share_invoice(bob, invoice)
 
     unshared_invoices = []
     for invoice in b_invoices:
@@ -84,6 +70,10 @@ def main():
         policy = get_share_policy(memo)
         if policy:
             print(policy)
+            if not invoice_has_been_shared(invoice, b_payments):
+                # payments were not found, so share the invoice
+                share_invoice(bob, invoice)
+
 
 def find_payment(hash, payments):
     for payment in payments:
@@ -112,8 +102,6 @@ def invoice_has_been_shared(invoice, payments):
     for payment in payments:
         pass
     return False
-
-
 
 
 if __name__ == '__main__':
