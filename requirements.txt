@@ -1,0 +1,8 @@
+aiogrpc==1.8
+googleapis-common-protos==1.54.0
+grpcio==1.43.0
+grpcio-tools==1.43.0
+lndgrpc==0.2.0
+protobuf==3.19.3
+PyYAML==6.0
+six==1.16.0

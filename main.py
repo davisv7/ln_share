@@ -18,7 +18,7 @@ def create_node_obj(config, name):
     return node_obj
 
 def get_share_policy(memo):
-    with open('shares.config') as f:
+    with open('shares.yaml') as f:
         conf = yaml.safe_load(f)
         for key in conf.keys():
             if key in memo:
